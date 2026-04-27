@@ -5,13 +5,19 @@ import projson.modelo.*
 import java.time.LocalDate
 import kotlin.reflect.KProperty
 import kotlin.reflect.full.hasAnnotation
+import kotlin.reflect.jvm.jvmErasure
 
 private const val QUOTE = "\""
 
 private const val COMMA = ","
 
+private const val FIELD_ID = $$"$id"
+
 class ProJson {
     private var documentRoot: JsonValue? = null
+
+    private val jsonObjectPorReferencias = mutableMapOf<Any, JsonObject>()
+    private val issuedIdsByType = mutableMapOf<String, Int>()
 
     fun toJson(value: Any): String {
         documentRoot = toJsonModel(value)
@@ -23,10 +29,19 @@ class ProJson {
     fun toJsonModel(value: Any?): JsonValue {
         return when {
             value == null -> JsonNull()
+            jsonObjectPorReferencias.containsKey(value) -> createReferencePointer(value)
             isPrimitiveOrString(value) -> convertPrimitive(value)
             value is Map<*, *> -> convertMap(value)
             shouldSerializeAsObject(value) -> convertObject(value)
             else -> convertIterable(value)
+        }
+    }
+
+    private fun createReferencePointer(instance: Any): JsonObject {
+        val targetObject = jsonObjectPorReferencias[instance]!!
+        val referenceId = targetObject.getProperty(FIELD_ID) as JsonString
+        return JsonObject().apply {
+            setProperty($$"$ref", referenceId)
         }
     }
 
@@ -45,9 +60,24 @@ class ProJson {
 
         val properties = reflectedType.members.filterIsInstance<KProperty<*>>()
         val propriedadesDiretas = properties.filterNot { it.hasAnnotation<Reference>() }
+        val propriedadesPorReferencias = properties.filter { it.hasAnnotation<Reference>() }
 
         for (property in propriedadesDiretas) {
             jsonObject.setProperty(property.name, toJsonModel(property.call(instance)))
+        }
+
+        for (property in propriedadesPorReferencias) {
+            val nomeSimplesClasse = property.returnType.arguments.first().type?.jvmErasure?.simpleName!!
+            jsonObject.setProperty(FIELD_ID, JsonString(createGeneratedId(nomeSimplesClasse)))
+            jsonObjectPorReferencias.getOrPut(instance) { jsonObject }
+
+            val referencedValues = property.call(instance)?.asIterableOrNull()
+            val serializedReferences = JsonArray()
+            referencedValues
+                ?.map { toJsonModel(it) }
+                ?.forEach { serializedReferences.add(it) }
+
+            jsonObject.setProperty(property.name, serializedReferences)
         }
 
         return jsonObject
@@ -59,6 +89,17 @@ class ProJson {
             ?.map { toJsonModel(it) }
             ?.forEach { jsonArray.add(it) }
         return jsonArray
+    }
+
+    private fun createGeneratedId(typeName: String): String {
+        val prefixoId = typeName[0].lowercaseChar()
+        return prefixoId + nextId(typeName).toString()
+    }
+
+    private fun nextId(typeName: String): Int {
+        val nextValue = issuedIdsByType.getOrDefault(typeName, 0) + 1
+        issuedIdsByType[typeName] = nextValue
+        return nextValue
     }
 
     private fun convertPrimitive(value: Any): JsonValue {
