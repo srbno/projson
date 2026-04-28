@@ -1,6 +1,8 @@
 package projson
 
 import org.junit.jupiter.api.Test
+import projson.classestest.Playlist
+import projson.classestest.Track
 import kotlin.test.assertEquals
 
 class ProJsonTestCenario3 {
@@ -29,14 +31,3 @@ class ProJsonTestCenario3 {
     }
 }
 
-data class Playlist(
-    val playlistId: String,
-    val tracks: List<Track>,
-    val genres: Set<String>,
-    val attributes: Map<String, String>
-)
-
-data class Track(
-    val title: String,
-    val duration: Double
-)
