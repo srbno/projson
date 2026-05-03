@@ -46,7 +46,7 @@ class ProJsonTestCenario2 {
 
         val allCourses = listOf(c1, c2, shared, c3, c4, c5)
 
-        val json = ProJson().toJson(allCourses)
+        val json = ProJson().toJsonString(allCourses)
 
         val id1 = System.identityHashCode(c1).toString(16)
         val id2 = System.identityHashCode(c2).toString(16)

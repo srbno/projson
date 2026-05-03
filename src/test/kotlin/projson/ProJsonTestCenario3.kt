@@ -21,7 +21,7 @@ class ProJsonTestCenario3 {
             )
         )
 
-        val json = ProJson().toJson(playlist)
+        val json = ProJson().toJsonString(playlist)
 
         assertEquals(
             $$"""{"$type":"Playlist","attributes":{"createdBy":"user123","mood":"relaxed"},"genres":["Chill","Christian"],"playlistId":"pl-001","tracks":[{"$type":"Track","duration":3.5,"title":"Great I Am"},{"$type":"Track","duration":4.2,"title":"Thank you Jesus"}]}""",

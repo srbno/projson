@@ -1,23 +1,58 @@
 package projson
 
+import projson.annotation.JsonProperty
 import projson.annotation.Reference
+import projson.annotation.JsonIgnore
+import projson.annotation.JsonString as JsonStringAnnotation
+import kotlin.reflect.full.createInstance
 import projson.modelo.*
 import java.time.LocalDate
 import kotlin.reflect.KProperty
 import kotlin.reflect.full.hasAnnotation
 import java.util.IdentityHashMap
+import kotlin.reflect.full.findAnnotation
+import kotlin.reflect.jvm.javaField
 
-private const val FIELD_ID = $$"$id"
+private const val FIELD_ID = "\$id"
 private const val FIELD_REF = "\$ref"
 private const val FIELD_TYPE = "\$type"
 
+/**
+ * Main entry point for converting Kotlin values into the ProJson in-memory JSON model.
+ *
+ * The serializer supports primitive JSON values, strings, characters, [LocalDate], maps, iterables,
+ * arrays, primitive arrays and Kotlin objects through reflection. Object generation can be customized
+ * with annotations such as [Reference], [JsonProperty], [JsonIgnore] and
+ * [projson.annotation.JsonString].
+ *
+ * The [toJson] method returns a mutable [JsonValue] model. The [toJsonString] method renders that
+ * model directly as compact JSON text.
+ */
 class ProJson {
     private val jsonObjectPorReferencias = IdentityHashMap<Any, JsonObject>()
+    private val objetosReferenciados = IdentityHashMap<Any, Boolean>()
 
-    fun toJson(value: Any?): String = toJsonModel(value).toString()
+    /**
+     * Converts [value] into the corresponding JSON model value.
+     *
+     * The returned [JsonValue] can be inspected, modified and rendered later with [JsonValue.toString]
+     * or [JsonValue.toJsonString].
+     *
+     * @param value Kotlin value to convert.
+     * @return JSON model representation of [value].
+     */
+    fun toJson(value: Any?): JsonValue = toJsonModel(value)
 
+    /**
+     * Converts [value] directly into compact JSON text.
+     *
+     * @param value Kotlin value to convert.
+     * @return compact JSON string representing [value].
+     */
+    fun toJsonString(value: Any?): String = toJson(value).toString()
     private fun toJsonModel(value: Any?): JsonValue {
         jsonObjectPorReferencias.clear()
+        objetosReferenciados.clear()
         return serialize(value)
     }
 
@@ -32,6 +67,7 @@ class ProJson {
     private fun convertToJsonModel(value: Any?): JsonValue {
         return when {
             value == null -> JsonNull()
+            hasJsonStringSerializer(value) -> convertWithJsonStringSerializer(value)
             isPrimitiveOrString(value) -> convertPrimitive(value)
             value is Map<*, *> -> convertMap(value)
             value is Iterable<*> -> convertIterable(value)
@@ -50,11 +86,8 @@ class ProJson {
     }
 
     private fun createReferencePointer(instance: Any): JsonObject {
-        val targetObject = jsonObjectPorReferencias[instance]
-            ?: throw IllegalStateException("Não existe objeto registado para a referência")
-        val referenceId = targetObject.getProperty(FIELD_ID) as JsonString
         return JsonObject().apply {
-            setProperty(FIELD_REF, referenceId)
+            setProperty(FIELD_REF, JsonString(createObjectId(instance)))
         }
     }
 
@@ -71,36 +104,25 @@ class ProJson {
         val jsonObject = JsonObject()
         jsonObject.setProperty(FIELD_TYPE, JsonString(reflectedType.simpleName!!))
 
-        val properties = reflectedType.members.filterIsInstance<KProperty<*>>()
+        val properties = reflectedType.members.filterIsInstance<KProperty<*>>().filterNot { it.isJsonIgnored() }
         val propriedadesDiretas = properties.filterNot { it.hasAnnotation<Reference>() }
         val propriedadesPorReferencias = properties.filter { it.hasAnnotation<Reference>() }
 
         for (property in propriedadesDiretas) {
-            jsonObject.setProperty(property.name, serialize(property.call(instance)))
+            jsonObject.setProperty(property.jsonPropertyName(), serialize(property.call(instance)))
         }
 
-        if (propriedadesPorReferencias.isNotEmpty()) {
+        if (propriedadesPorReferencias.isNotEmpty() || objetosReferenciados.containsKey(instance)) {
             jsonObject.setProperty(FIELD_ID, JsonString(createObjectId(instance)))
             jsonObjectPorReferencias[instance] = jsonObject
         }
 
         for (property in propriedadesPorReferencias) {
-            val serializedReferences = JsonArray()
-            val referencedValue = property.call(instance)
-
-            if (referencedValue != null) {
-                val serializedValue = serialize(referencedValue)
-
-                if (serializedValue is JsonArray) {
-                    serializedValue.elements.forEach { serializedReferences.add(it) }
-                } else {
-                    serializedReferences.add(serializedValue)
-                }
-            }
-
-            jsonObject.setProperty(property.name, serializedReferences)
+            jsonObject.setProperty(
+                property.jsonPropertyName(),
+                serializeAsReference(property.call(instance))
+            )
         }
-
         return jsonObject
     }
 
@@ -116,14 +138,7 @@ class ProJson {
         System.identityHashCode(value).toString(16)
 
     private fun convertPrimitive(value: Any): JsonValue {
-        return when (value) {
-            is LocalDate -> JsonString(value.toString())
-            is String -> JsonString(value)
-            is Char -> JsonString(value.toString())
-            is Number -> JsonNumber(value)
-            is Boolean -> JsonBoolean(value)
-            else -> JsonNull()
-        }
+        return value.asJsonValue()
     }
 
     private fun isPrimitiveOrString(value: Any?): Boolean {
@@ -135,6 +150,63 @@ class ProJson {
     }
     private fun shouldSerializeAsObject(value: Any): Boolean {
         return !isPrimitiveOrString(value) && value !is Map<*, *>
+    }
+
+    private fun KProperty<*>.jsonPropertyName(): String {
+        return findAnnotation<JsonProperty>()?.value
+            ?: javaField?.getAnnotation(JsonProperty::class.java)?.value
+            ?: name
+    }
+
+    private fun KProperty<*>.isJsonIgnored(): Boolean {
+        return findAnnotation<JsonIgnore>() != null
+                || javaField?.getAnnotation(JsonIgnore::class.java) != null
+    }
+
+    private fun hasJsonStringSerializer(value: Any): Boolean {
+        return value::class.findAnnotation<JsonStringAnnotation>() != null
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun convertWithJsonStringSerializer(value: Any): JsonValue {
+        val annotation = value::class.findAnnotation<JsonStringAnnotation>()
+            ?: throw IllegalStateException("Serializer @JsonString não encontrado")
+
+        val serializerInstance = annotation.serializer.objectInstance
+            ?: annotation.serializer.createInstance()
+
+        val serializer = serializerInstance as JsonStringSerializer<Any>
+
+        return JsonString(serializer.serialize(value))
+    }
+
+    private fun serializeAsReference(value: Any?): JsonValue {
+        return when {
+            value == null -> JsonNull()
+
+            value is Iterable<*> -> {
+                val jsonArray = JsonArray()
+                value.forEach {
+                    jsonArray.add(serializeAsReference(it))
+                }
+                jsonArray
+            }
+
+            value is Array<*> -> {
+                val jsonArray = JsonArray()
+                value.forEach {
+                    jsonArray.add(serializeAsReference(it))
+                }
+                jsonArray
+            }
+
+            shouldSerializeAsObject(value) -> {
+                objetosReferenciados[value] = true
+                createReferencePointer(value)
+            }
+
+            else -> serialize(value)
+        }
     }
 }
 
