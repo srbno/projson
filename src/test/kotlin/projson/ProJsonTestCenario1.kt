@@ -18,7 +18,7 @@ class ProJsonTestCenario1 {
             )
         )
 
-        val json = ProJson().toJson(user)
+        val json = ProJson().toJsonString(user)
 
         assertEquals(
             $$"""{"$type":"UserProfile","dateOfBirth":{"$type":"BirthDate","dayOfMonth":15,"monthOfYear":6,"yearValue":1995},"fullName":"Alice Johnson","yearsOld":30}""",
