@@ -8,4 +8,9 @@ class JsonArray : JsonValue {
 
     fun get(index: Int) = elements[index]
 
+    override fun accept(visitor: JsonVisitor) {
+        visitor.visitArray(this)
+    }
+
+    override fun toString(): String = toJsonString()
 }

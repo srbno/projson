@@ -9,4 +9,9 @@ class JsonObject : JsonValue {
 
     fun getProperty(name: String): JsonValue? = properties[name]
 
+    override fun accept(visitor: JsonVisitor) {
+        visitor.visitObject(this)
+    }
+
+    override fun toString(): String = toJsonString()
 }
