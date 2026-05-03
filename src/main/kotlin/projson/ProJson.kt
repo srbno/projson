@@ -5,50 +5,63 @@ import projson.modelo.*
 import java.time.LocalDate
 import kotlin.reflect.KProperty
 import kotlin.reflect.full.hasAnnotation
-import kotlin.reflect.jvm.jvmErasure
-
-private const val QUOTE = "\""
-
-private const val COMMA = ","
+import java.util.IdentityHashMap
 
 private const val FIELD_ID = $$"$id"
+private const val FIELD_REF = "\$ref"
+private const val FIELD_TYPE = "\$type"
 
 class ProJson {
-    private var documentRoot: JsonValue? = null
+    private val jsonObjectPorReferencias = IdentityHashMap<Any, JsonObject>()
 
-    private val jsonObjectPorReferencias = mutableMapOf<Any, JsonObject>()
-    private val issuedIdsByType = mutableMapOf<String, Int>()
+    fun toJson(value: Any?): String = toJsonModel(value).toString()
 
-    fun toJson(value: Any): String {
-        documentRoot = toJsonModel(value)
-        return buildString {
-            appendJsonNode(documentRoot, this)
-        }
+    private fun toJsonModel(value: Any?): JsonValue {
+        jsonObjectPorReferencias.clear()
+        return serialize(value)
     }
 
-    fun toJsonModel(value: Any?): JsonValue {
+    private fun serialize(value: Any?): JsonValue {
+        if (value != null && jsonObjectPorReferencias.containsKey(value)) {
+            return createReferencePointer(value)
+        }
+
+        return convertToJsonModel(value)
+    }
+
+    private fun convertToJsonModel(value: Any?): JsonValue {
         return when {
             value == null -> JsonNull()
-            jsonObjectPorReferencias.containsKey(value) -> createReferencePointer(value)
             isPrimitiveOrString(value) -> convertPrimitive(value)
             value is Map<*, *> -> convertMap(value)
+            value is Iterable<*> -> convertIterable(value)
+            value is Array<*> -> convertIterable(value.asIterable())
+            value is IntArray -> convertIterable(value.asIterable())
+            value is LongArray -> convertIterable(value.asIterable())
+            value is DoubleArray -> convertIterable(value.asIterable())
+            value is FloatArray -> convertIterable(value.asIterable())
+            value is BooleanArray -> convertIterable(value.asIterable())
+            value is CharArray -> convertIterable(value.asIterable())
+            value is ShortArray -> convertIterable(value.asIterable())
+            value is ByteArray -> convertIterable(value.asIterable())
             shouldSerializeAsObject(value) -> convertObject(value)
-            else -> convertIterable(value)
+            else -> throw IllegalArgumentException("Tipo não suportado: ${value::class.simpleName}")
         }
     }
 
     private fun createReferencePointer(instance: Any): JsonObject {
-        val targetObject = jsonObjectPorReferencias[instance]!!
+        val targetObject = jsonObjectPorReferencias[instance]
+            ?: throw IllegalStateException("Não existe objeto registado para a referência")
         val referenceId = targetObject.getProperty(FIELD_ID) as JsonString
         return JsonObject().apply {
-            setProperty($$"$ref", referenceId)
+            setProperty(FIELD_REF, referenceId)
         }
     }
 
     private fun convertMap(entries: Map<*, *>): JsonObject {
         val jsonObject = JsonObject()
         for ((entryKey, entryValue) in entries) {
-            jsonObject.setProperty(entryKey.toString(), toJsonModel(entryValue))
+            jsonObject.setProperty(entryKey.toString(), serialize(entryValue))
         }
         return jsonObject
     }
@@ -56,26 +69,34 @@ class ProJson {
     private fun convertObject(instance: Any): JsonObject {
         val reflectedType = instance::class
         val jsonObject = JsonObject()
-        jsonObject.setProperty($$"$type", JsonString(reflectedType.simpleName!!))
+        jsonObject.setProperty(FIELD_TYPE, JsonString(reflectedType.simpleName!!))
 
         val properties = reflectedType.members.filterIsInstance<KProperty<*>>()
         val propriedadesDiretas = properties.filterNot { it.hasAnnotation<Reference>() }
         val propriedadesPorReferencias = properties.filter { it.hasAnnotation<Reference>() }
 
         for (property in propriedadesDiretas) {
-            jsonObject.setProperty(property.name, toJsonModel(property.call(instance)))
+            jsonObject.setProperty(property.name, serialize(property.call(instance)))
+        }
+
+        if (propriedadesPorReferencias.isNotEmpty()) {
+            jsonObject.setProperty(FIELD_ID, JsonString(createObjectId(instance)))
+            jsonObjectPorReferencias[instance] = jsonObject
         }
 
         for (property in propriedadesPorReferencias) {
-            val nomeSimplesClasse = property.returnType.arguments.first().type?.jvmErasure?.simpleName!!
-            jsonObject.setProperty(FIELD_ID, JsonString(createGeneratedId(nomeSimplesClasse)))
-            jsonObjectPorReferencias.getOrPut(instance) { jsonObject }
-
-            val referencedValues = property.call(instance)?.asIterableOrNull()
             val serializedReferences = JsonArray()
-            referencedValues
-                ?.map { toJsonModel(it) }
-                ?.forEach { serializedReferences.add(it) }
+            val referencedValue = property.call(instance)
+
+            if (referencedValue != null) {
+                val serializedValue = serialize(referencedValue)
+
+                if (serializedValue is JsonArray) {
+                    serializedValue.elements.forEach { serializedReferences.add(it) }
+                } else {
+                    serializedReferences.add(serializedValue)
+                }
+            }
 
             jsonObject.setProperty(property.name, serializedReferences)
         }
@@ -83,128 +104,37 @@ class ProJson {
         return jsonObject
     }
 
-    private fun convertIterable(source: Any): JsonArray {
+    private fun convertIterable(source: Iterable<*>): JsonArray {
         val jsonArray = JsonArray()
-        source.asIterableOrNull()
-            ?.map { toJsonModel(it) }
-            ?.forEach { jsonArray.add(it) }
+        source
+            .map { serialize(it) }
+            .forEach { jsonArray.add(it) }
         return jsonArray
     }
 
-    private fun createGeneratedId(typeName: String): String {
-        val prefixoId = typeName[0].lowercaseChar()
-        return prefixoId + nextId(typeName).toString()
-    }
-
-    private fun nextId(typeName: String): Int {
-        val nextValue = issuedIdsByType.getOrDefault(typeName, 0) + 1
-        issuedIdsByType[typeName] = nextValue
-        return nextValue
-    }
+    private fun createObjectId(value: Any): String =
+        System.identityHashCode(value).toString(16)
 
     private fun convertPrimitive(value: Any): JsonValue {
         return when (value) {
             is LocalDate -> JsonString(value.toString())
             is String -> JsonString(value)
+            is Char -> JsonString(value.toString())
             is Number -> JsonNumber(value)
             is Boolean -> JsonBoolean(value)
             else -> JsonNull()
         }
     }
 
-    private fun appendJsonNode(node: JsonValue?, builder: StringBuilder) {
-        when (node) {
-            is JsonNull -> builder.append("null")
-            is JsonString, is JsonNumber, is JsonBoolean -> appendInlineValue(node, builder)
-            is JsonObject -> {
-                builder.append("{")
-                val fields = node.properties
-                    .toSortedMap()
-                    .iterator()
-                while (fields.hasNext()) {
-                    val field = fields.next()
-                    builder.append("\"${field.key}\":")
-                    appendInlineValue(field.value, builder)
-                    if (fields.hasNext()) {
-                        builder.append(COMMA)
-                    }
-                }
-                builder.append("}")
-            }
-            is JsonArray -> {
-                builder.append("[")
-                val items = node.elements.iterator()
-                while (items.hasNext()) {
-                    appendJsonNode(items.next(), builder)
-                    if (items.hasNext()) {
-                        builder.append(COMMA)
-                    }
-                }
-                builder.append("]")
-            }
-            null -> builder.append("null")
-        }
-    }
-
-    fun isPrimitiveOrString(value: Any?): Boolean {
+    private fun isPrimitiveOrString(value: Any?): Boolean {
         return value is String ||
                 value is Number ||
                 value is Boolean ||
                 value is Char ||
                 value is LocalDate
     }
-
-    private fun appendInlineValue(node: JsonValue, sink: StringBuilder) {
-        when (node) {
-            is JsonNull -> sink.append("null")
-            is JsonString -> sink.append(QUOTE)
-                .append(node.value.escapeJsonString())
-                .append(QUOTE)
-            is JsonNumber -> sink.append(node.value)
-            is JsonBoolean -> sink.append(node.value)
-            else -> appendJsonNode(node, sink)
-        }
-    }
-
     private fun shouldSerializeAsObject(value: Any): Boolean {
-        return value !is Collection<*> &&
-                value !is Array<*> &&
-                value !is Iterable<*>
+        return !isPrimitiveOrString(value) && value !is Map<*, *>
     }
 }
 
-fun Any.asIterableOrNull(): Iterable<*>? = when (this) {
-    is Iterable<*> -> this
-    is Array<*> -> this.asIterable()
-    is IntArray -> this.asIterable()
-    is LongArray -> this.asIterable()
-    is DoubleArray -> this.asIterable()
-    is FloatArray -> this.asIterable()
-    is BooleanArray -> this.asIterable()
-    is CharArray -> this.asIterable()
-    is ShortArray -> this.asIterable()
-    is ByteArray -> this.asIterable()
-    else -> null
-}
-
-fun String.escapeJsonString(): String =
-    buildString {
-        for (ch in this@escapeJsonString) {
-            when (ch) {
-                '\"' -> append("\\\"")
-                '\\' -> append("\\\\")
-                '\b' -> append("\\b")
-                '\u000C' -> append("\\f") // form feed
-                '\n' -> append("\\n")
-                '\r' -> append("\\r")
-                '\t' -> append("\\t")
-                else -> {
-                    if (ch < ' ') {
-                        append("\\u%04x".format(ch.code))
-                    } else {
-                        append(ch)
-                    }
-                }
-            }
-        }
-    }

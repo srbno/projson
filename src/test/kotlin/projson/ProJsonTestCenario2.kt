@@ -8,7 +8,6 @@ import kotlin.test.assertEquals
 class ProJsonTestCenario2 {
     @Test
     fun testCourses() {
-
         val c1 = Course(
             title = "Course 1",
             startDate = LocalDate.of(2026, 1, 1),
@@ -47,11 +46,17 @@ class ProJsonTestCenario2 {
 
         val allCourses = listOf(c1, c2, shared, c3, c4, c5)
 
-
         val json = ProJson().toJson(allCourses)
 
+        val id1 = System.identityHashCode(c1).toString(16)
+        val id2 = System.identityHashCode(c2).toString(16)
+        val sharedId = System.identityHashCode(shared).toString(16)
+        val id3 = System.identityHashCode(c3).toString(16)
+        val id4 = System.identityHashCode(c4).toString(16)
+        val id5 = System.identityHashCode(c5).toString(16)
+
         assertEquals(
-            $$"""[{"$id":"c1","$type":"Course","prerequisites":[],"startDate":"2026-01-01","title":"Course 1"},{"$id":"c2","$type":"Course","prerequisites":[],"startDate":"2026-02-02","title":"Course 2"},{"$id":"c3","$type":"Course","prerequisites":[],"startDate":null,"title":"Fundamentals"},{"$id":"c4","$type":"Course","prerequisites":[{"$ref":"c3"},{"$ref":"c1"}],"startDate":null,"title":"Intermediate Concepts"},{"$id":"c5","$type":"Course","prerequisites":[{"$ref":"c1"},{"$ref":"c2"},{"$ref":"c3"}],"startDate":"2026-04-04","title":"Advanced Topics"},{"$id":"c6","$type":"Course","prerequisites":[{"$ref":"c4"},{"$ref":"c5"},{"$ref":"c3"}],"startDate":null,"title":"Master Program"}]""",
+            """[{"${'$'}id":"$id1","${'$'}type":"Course","prerequisites":[],"startDate":"2026-01-01","title":"Course 1"},{"${'$'}id":"$id2","${'$'}type":"Course","prerequisites":[],"startDate":"2026-02-02","title":"Course 2"},{"${'$'}id":"$sharedId","${'$'}type":"Course","prerequisites":[],"startDate":null,"title":"Fundamentals"},{"${'$'}id":"$id3","${'$'}type":"Course","prerequisites":[{"${'$'}ref":"$sharedId"},{"${'$'}ref":"$id1"}],"startDate":null,"title":"Intermediate Concepts"},{"${'$'}id":"$id4","${'$'}type":"Course","prerequisites":[{"${'$'}ref":"$id1"},{"${'$'}ref":"$id2"},{"${'$'}ref":"$sharedId"}],"startDate":"2026-04-04","title":"Advanced Topics"},{"${'$'}id":"$id5","${'$'}type":"Course","prerequisites":[{"${'$'}ref":"$id3"},{"${'$'}ref":"$id4"},{"${'$'}ref":"$sharedId"}],"startDate":null,"title":"Master Program"}]""",
             json
         )
     }
