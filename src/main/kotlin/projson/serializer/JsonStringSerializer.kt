@@ -1,4 +1,4 @@
-package projson
+package projson.serializer
 
 /**
  * Contract used by [projson.annotation.JsonString] to convert Kotlin objects into JSON strings.

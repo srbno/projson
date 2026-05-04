@@ -1,6 +1,6 @@
 package projson.annotation
 
-import projson.JsonStringSerializer
+import projson.serializer.JsonStringSerializer
 import kotlin.reflect.KClass
 
 /**
