@@ -38,7 +38,7 @@ ProJson supports:
 ```text
 src/main/kotlin/projson
 ├── ProJson.kt
-├── serializers
+├── serializer
 │   ├── JsonStringSerializer.kt
 ├── annotation
 │   ├── JsonIgnore.kt
@@ -55,7 +55,7 @@ src/main/kotlin/projson
     ├── JsonNumber.kt
     ├── JsonBoolean.kt
     ├── JsonNull.kt
-    └── asJasonValue.kt
+    └── asJsonValue.kt
 ```
 
 Package responsibilities:
