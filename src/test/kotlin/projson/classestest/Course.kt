@@ -7,6 +7,6 @@ data class Course(
     val title: String,
     val startDate: LocalDate?,
 
-    @property:Reference
+    @Reference
     val prerequisites: List<Course>
 )
