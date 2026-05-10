@@ -1,6 +1,6 @@
 package projson.classestest
 
-import projson.JsonStringSerializer
+import projson.serializer.JsonStringSerializer
 import projson.annotation.JsonString
 
 class BirthDateAsText : JsonStringSerializer<BirthDateText> {

@@ -6,6 +6,7 @@ import projson.annotation.JsonIgnore
 import projson.annotation.JsonString as JsonStringAnnotation
 import kotlin.reflect.full.createInstance
 import projson.modelo.*
+import projson.serializer.JsonStringSerializer
 import java.time.LocalDate
 import kotlin.reflect.KProperty
 import kotlin.reflect.full.hasAnnotation

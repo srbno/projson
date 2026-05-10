@@ -38,7 +38,8 @@ ProJson supports:
 ```text
 src/main/kotlin/projson
 ├── ProJson.kt
-├── JsonStringSerializer.kt
+├── serializers
+│   ├── JsonStringSerializer.kt
 ├── annotation
 │   ├── JsonIgnore.kt
 │   ├── JsonProperty.kt
