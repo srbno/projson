@@ -98,9 +98,11 @@ class JsonStringVisitor : JsonVisitor {
     }
 }
 
-private fun String.escapeJsonString(): String =
-    buildString {
-        for (ch in this@escapeJsonString) {
+private fun String.escapeJsonString(): String {
+    val original = this
+
+    return buildString {
+        for (ch in original) {
             when (ch) {
                 '"' -> append("\\\"")
                 '\\' -> append("\\\\")
@@ -119,3 +121,4 @@ private fun String.escapeJsonString(): String =
             }
         }
     }
+}
