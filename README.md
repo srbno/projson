@@ -411,7 +411,7 @@ Use `@JsonString` when a class should be represented as a JSON string instead of
 First, create a serializer by implementing `JsonStringSerializer<T>`.
 
 ```kotlin
-import projson.JsonStringSerializer
+import projson.serializer.JsonStringSerializer
 
 class DateAsText : JsonStringSerializer<BirthDate> {
     override fun serialize(value: BirthDate): String {
