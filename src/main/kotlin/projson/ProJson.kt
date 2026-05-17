@@ -19,7 +19,7 @@ private const val FIELD_ID = "\$id"
 private const val FIELD_REF = "\$ref"
 private const val FIELD_TYPE = "\$type"
 
-private val RESERVED_JSON_PROPERTY_NAMES = setOf("\$id", "\$ref", "\$type", "id", "type")
+private val RESERVED_JSON_PROPERTY_NAMES = setOf(FIELD_ID, FIELD_REF, FIELD_TYPE, "id", "type")
 
 /**
  * Main entry point for converting Kotlin values into the ProJson in-memory JSON model.
