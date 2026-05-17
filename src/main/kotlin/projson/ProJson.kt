@@ -161,6 +161,9 @@ class ProJson {
             ?: javaField?.getAnnotation(JsonProperty::class.java)?.value
             ?: return name
 
+        if (annotated.isBlank()) {
+            throw IllegalArgumentException("Nome de propriedade não pode ser vazio")
+        }
         if (annotated in RESERVED_JSON_PROPERTY_NAMES) {
             throw IllegalArgumentException("Nome de propriedade reservado: $annotated")
         }

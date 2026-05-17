@@ -21,3 +21,11 @@ data class WithReservedId(
 data class WithReservedType(
     @JsonProperty("type") val name: String
 )
+
+data class WithEmptyJsonProperty(
+    @JsonProperty("") val name: String
+)
+
+data class WithBlankJsonProperty(
+    @JsonProperty("   ") val name: String
+)

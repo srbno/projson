@@ -50,4 +50,20 @@ class ProJsonAnnotationValidationTest {
         }
         assertEquals("Nome de propriedade reservado: type", ex.message)
     }
+
+    @Test
+    fun `JsonProperty vazio e rejeitado`() {
+        val ex = assertThrows<IllegalArgumentException> {
+            ProJson().toJsonString(projson.classestest.WithEmptyJsonProperty("x"))
+        }
+        assertEquals("Nome de propriedade não pode ser vazio", ex.message)
+    }
+
+    @Test
+    fun `JsonProperty so com espacos e rejeitado`() {
+        val ex = assertThrows<IllegalArgumentException> {
+            ProJson().toJsonString(projson.classestest.WithBlankJsonProperty("x"))
+        }
+        assertEquals("Nome de propriedade não pode ser vazio", ex.message)
+    }
 }
