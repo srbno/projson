@@ -5,7 +5,7 @@ import projson.classestest.BirthDate
 import projson.classestest.UserProfile
 import kotlin.test.assertEquals
 
-class ProJsonTestCenario1 {
+class ProJsonCenarioTest1 {
     @Test
     fun testUserProfileCase() {
         val user = UserProfile(

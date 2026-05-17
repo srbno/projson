@@ -5,7 +5,7 @@ import projson.classestest.Course
 import java.time.LocalDate
 import kotlin.test.assertEquals
 
-class ProJsonTestCenario2 {
+class ProJsonCenarioTest2 {
     @Test
     fun testCourses() {
         val c1 = Course(
