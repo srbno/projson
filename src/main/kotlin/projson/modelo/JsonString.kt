@@ -11,7 +11,7 @@ class JsonString(val value: String) : JsonValue {
      * @param visitor visitor to execute.
      */
     override fun accept(visitor: JsonVisitor) {
-        visitor.visitString(this)
+        visitor.visit(this)
     }
 
     /**

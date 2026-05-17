@@ -5,7 +5,7 @@ import projson.classestest.Playlist
 import projson.classestest.Track
 import kotlin.test.assertEquals
 
-class ProJsonTestCenario3 {
+class ProJsonCenarioTest3 {
     @Test
     fun testPlaylist() {
         val playlist = Playlist(

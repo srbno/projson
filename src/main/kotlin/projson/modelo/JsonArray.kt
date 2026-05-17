@@ -75,7 +75,7 @@ class JsonArray : JsonValue {
      * @param visitor visitor to execute.
      */
     override fun accept(visitor: JsonVisitor) {
-        visitor.visitArray(this)
+        visitor.visit(this)
     }
 
     /**

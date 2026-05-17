@@ -77,7 +77,7 @@ class JsonObject : JsonValue {
      * @param visitor visitor to execute.
      */
     override fun accept(visitor: JsonVisitor) {
-        visitor.visitObject(this)
+        visitor.visit(this)
     }
 
     /**
