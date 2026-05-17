@@ -8,6 +8,7 @@ import kotlin.reflect.full.createInstance
 import projson.modelo.*
 import projson.serializer.JsonStringSerializer
 import java.time.LocalDate
+import java.util.Collections
 import kotlin.reflect.KProperty
 import kotlin.reflect.full.hasAnnotation
 import java.util.IdentityHashMap
@@ -31,7 +32,7 @@ private const val FIELD_TYPE = "\$type"
  */
 class ProJson {
     private val jsonObjectPorReferencias = IdentityHashMap<Any, JsonObject>()
-    private val objetosReferenciados = IdentityHashMap<Any, Boolean>()
+    private val objetosReferenciados: MutableSet<Any> = Collections.newSetFromMap(IdentityHashMap())
 
     /**
      * Converts [value] into the corresponding JSON model value.
@@ -113,7 +114,7 @@ class ProJson {
             jsonObject.setProperty(property.jsonPropertyName(), serialize(property.call(instance)))
         }
 
-        if (propriedadesPorReferencias.isNotEmpty() || objetosReferenciados.containsKey(instance)) {
+        if (propriedadesPorReferencias.isNotEmpty() || objetosReferenciados.contains(instance)) {
             jsonObject.setProperty(FIELD_ID, JsonString(createObjectId(instance)))
             jsonObjectPorReferencias[instance] = jsonObject
         }
@@ -168,8 +169,8 @@ class ProJson {
         return value::class.findAnnotation<JsonStringAnnotation>() != null
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun convertWithJsonStringSerializer(value: Any): JsonValue {
+        // TODO: Se value for vazio lançar exception
         val annotation = value::class.findAnnotation<JsonStringAnnotation>()
             ?: throw IllegalStateException("Serializer @JsonString não encontrado")
 
@@ -202,7 +203,7 @@ class ProJson {
             }
 
             shouldSerializeAsObject(value) -> {
-                objetosReferenciados[value] = true
+                objetosReferenciados.add(value)
                 createReferencePointer(value)
             }
 
@@ -210,4 +211,3 @@ class ProJson {
         }
     }
 }
-
