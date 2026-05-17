@@ -12,7 +12,7 @@ class JsonBoolean(val value: Boolean) : JsonValue {
      * @param visitor visitor to execute.
      */
     override fun accept(visitor: JsonVisitor) {
-        visitor.visitBoolean(this)
+        visitor.visit(this)
     }
 
     /**

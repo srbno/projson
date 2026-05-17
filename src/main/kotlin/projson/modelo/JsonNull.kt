@@ -10,7 +10,7 @@ class JsonNull : JsonValue {
      * @param visitor visitor to execute.
      */
     override fun accept(visitor: JsonVisitor) {
-        visitor.visitNull(this)
+        visitor.visit(this)
     }
 
     /**

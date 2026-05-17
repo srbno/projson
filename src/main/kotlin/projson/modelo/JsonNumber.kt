@@ -12,7 +12,7 @@ class JsonNumber(val value: Number) : JsonValue {
      * @param visitor visitor to execute.
      */
     override fun accept(visitor: JsonVisitor) {
-        visitor.visitNumber(this)
+        visitor.visit(this)
     }
 
     /**
